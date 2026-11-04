@@ -1,4 +1,53 @@
 import math
+import time 
+#ARBOL
+class NodoTrie:
+    #representa una letra dentro de un camino de palabras
+    __slots__ = ("hijos", "posiciones")  #atributos del arbol 
+
+    def __init__(self): #constructor, se ejecuta cada vez que creamos un nodo4
+     #crea un diccionario vacio  donde se gurada los nodos que estan conectados al nodo actual 
+        self.hijos = {}
+     #crea una lista vacia donde se guardan las posiciones donde aparecen las palabras que terminan en ese nodo
+        self.posiciones =[]
+
+
+def construir_trie(indice_simple):
+     raiz = NodoTrie()
+
+     for palabra_min, posiciones in indice_simple.items():
+        nodo = raiz
+        for letra in palabra_min:
+            if letra not in nodo.hijos:
+                 nodo.hijos[letra] = NodoTrie()
+            nodo = nodo.hijos[letra]
+
+        nodo.posiciones = posiciones 
+
+     return raiz
+
+
+def posiciones_con_prefijo(raiz, prefijo):
+    nodo = raiz
+    for letra in prefijo:
+        nodo = nodo.hijos.get(letra)
+        if nodo is None:
+            return[]
+
+
+    posiciones = []
+    pila = [nodo]
+    while pila:
+        actual = pila.pop()
+        posiciones.extend(actual.posiciones)
+        pila.extend(actual.hijos.values())
+
+
+    posiciones.sort()
+    return posiciones
+        
+
+ 
 
 def cargar_archivo(ruta):
     # lista para guardar las palabras en orden
@@ -13,6 +62,9 @@ def cargar_archivo(ruta):
     #lista para saber en que linea esta cada palabara para mostrar la primera y ultima coincidencia con su numero de linea
     lineas_palabras = []
 
+    #diccionario con las posiciones de cada palabra (en minusculas), para el trie
+    posiciones_simple = {}
+
     try:
         #abrimos el archivo en modo lectura
         with open(ruta, "r", encoding="utf-8") as archivo:
@@ -26,6 +78,9 @@ def cargar_archivo(ruta):
                 # revisamos cada palabra de la línea
                 for palabra in palabras_linea:
 
+                    # guardamos el índice antes de agregar la palabra
+                    indice = len(palabras)
+
                     # guardamos la palabra en la lista
                     palabras.append(palabra)
 
@@ -38,6 +93,11 @@ def cargar_archivo(ruta):
 
                     # convertimos la palabra a minúsculas
                     palabra_minuscula = palabra.lower()
+
+                    if palabra_minuscula not in posiciones_simple:
+                          posiciones_simple[palabra_minuscula] = []
+
+                    posiciones_simple[palabra_minuscula].append(indice)
 
                     # si no existe, creamos su lista de líneas
                     if palabra_minuscula not in apariciones_simple:
@@ -53,9 +113,11 @@ def cargar_archivo(ruta):
         if len(palabras) == 0:
             print("El archivo está vacío.")
             return None
+        
+        raiz_trie = construir_trie(posiciones_simple)    
 
         # devolvemos las estructuras creadas incluyendo las convertidas a minusculas para tener ambas versiones del diccionario y tambien la lista con el numero de linea de las palabras
-        return palabras, apariciones, apariciones_simple, lineas_palabras
+        return palabras, apariciones, apariciones_simple, lineas_palabras, raiz_trie
 
     except FileNotFoundError:
         print("Error: el archivo no existe.")
@@ -74,22 +136,31 @@ def cargar_archivo(ruta):
 
 def buscar_exacta(palabra, apariciones):
 
+    inicio = time.perf_counter()
+
     #si la palabra existe como clave en el diccionario y guarda en lineas donde aparece la palabra
     if palabra in apariciones:
         lineas = apariciones[palabra]
 
         print("La palabra fue encontrada.")
         print("Cantidad de apariciones:", len(lineas)) #cantidad de veces que aparece la palabra
-        print("Líneas donde aparece:", lineas) #lineas donde aparece la palabra
+        print("Primera línea:", lineas[0])
+        print("Última línea:", lineas[-1])
 
     else:
         print("La palabra no fue encontrada.")
 
+    fin = time.perf_counter()
+
+    tiempo = (fin - inicio) * 1000
+    print("Tiempo de búsqueda:", tiempo, "milisegundos")
 
 def buscar_simple(palabra, apariciones_simple):
 
     # convertimos lo que escribió el usuario a minúsculas
     palabra = palabra.lower()
+
+    inicio = time.perf_counter()
 
     # revisamos si la palabra existe en el diccionario
     if palabra in apariciones_simple:
@@ -98,54 +169,56 @@ def buscar_simple(palabra, apariciones_simple):
 
         print("La palabra fue encontrada.")
         print("Cantidad de apariciones:", len(lineas))
-        print("Líneas donde aparece:", lineas)
+        print("Primera línea:", lineas[0])
+        print("Última línea:", lineas[-1])
 
     else:
         print("La palabra no fue encontrada.")
 
+    fin = time.perf_counter()
 
-def buscar_prefijo(prefijo, palabras, lineas_palabras):
+    tiempo = (fin - inicio) * 1000
+    print("Tiempo de búsqueda:", tiempo, "milisegundos")
 
+
+def buscar_prefijo(prefijo, raiz_trie, palabras, lineas_palabras):
+    # evitamos prefijos vacíos (devolverían todas las palabras)
+    if prefijo.strip() == "":
+        print("Error: debe ingresar un prefijo.")
+        return
+    
     # convertimos el prefijo a minúsculas
-    prefijo = prefijo.lower()
+    prefijo = prefijo.strip().lower()
 
-    # lista para guardar las coincidencias
-    coincidencias = []
+    inicio = time.perf_counter()
 
-    # recorremos todas las palabras del archivo
-    for i in range(len(palabras)):
+    #buscamos en el trie las posicones de las palabras que comienzan con el prefijo indicado
+    indices = posiciones_con_prefijo(raiz_trie, prefijo)
 
-        # obtenemos la palabra en minúsculas
-        palabra = palabras[i].lower()
+    if len(indices) > 0:
 
-        # comprobamos si comienza con el prefijo
-        if palabra.startswith(prefijo):
+        #mostrar cada palabra y la linea en la que aparece
+        for indice in indices:
+            print(palabras[indice], "- Línea:", lineas_palabras[indice])
 
-            # guardamos la palabra y su línea
-            coincidencias.append((palabras[i], lineas_palabras[i]))
 
-    # comprobamos si encontramos coincidencias
-    if len(coincidencias) > 0:
-
-        print("Palabras encontradas:")
-
-        # mostramos todas las coincidencias
-        for palabra, linea in coincidencias:
-            print(palabra, "- Línea:", linea)
 
         # mostramos la primera coincidencia
-        print("Primera palabra:", coincidencias[0][0])
-        print("Primera línea:", coincidencias[0][1])
+        print("Primera palabra:", palabras[indices[0]])
+        print("Primera línea:", lineas_palabras[indices[0]])
 
         # mostramos la última coincidencia
-        print("Última palabra:", coincidencias[-1][0])
-        print("Última línea:", coincidencias[-1][1])
+        print("Última palabra:", palabras[indices[-1]])
+        print("Última línea:", lineas_palabras[indices[-1]])
 
     else:
         print("No se encontraron palabras con ese prefijo.")
 
+    fin = time.perf_counter()
 
-import math
+    tiempo = (fin - inicio) * 1000
+    print("Tiempo de búsqueda:", tiempo, "milisegundos")
+
 
 def mostrar_estadisticas(palabras):
 
@@ -183,81 +256,58 @@ def mostrar_estadisticas(palabras):
 
 
 def buscar_por_posicion(palabras, lineas_palabras):
+    while True:
+        posicion = input("Ingrese la posición de la palabra que desea buscar: ")
 
-    posicion = input("Ingrese la posición de la palabra que desea buscar: ")
+        inicio = time.perf_counter()
 
-    # intentamos convertir el dato a un número entero
-    try:
-        posicion = int(posicion)
+        # intentamos convertir el dato a un número entero
+        try:
+            posicion = int(posicion)
 
-    except ValueError:
-        print("Error: debe ingresar un número entero.")
-        return
+        except ValueError:
+            print("Error: debe ingresar un número entero.")
+            continue
 
-    # comprobamos que la posición esté dentro del rango
-    if posicion < 1 or posicion > len(palabras):
-        print("Error: la posición está fuera del rango del archivo.")
-        print("El archivo tiene", len(palabras), "palabras.")
-        return
+        # comprobamos que la posición esté dentro del rango
+        if posicion < 1 or posicion > len(palabras):
+            print("Error: la posición está fuera del rango del archivo.")
+            print("El archivo tiene", len(palabras), "palabras.")
+            continue
 
-    # convertimos la posición del usuario a un índice de Python
-    indice = posicion - 1
+        # convertimos la posición del usuario a un índice de Python
+        indice = posicion - 1
 
-    # obtenemos la palabra que está en esa posición
-    palabra = palabras[indice]
+        # obtenemos la palabra que está en esa posición
+        palabra = palabras[indice]
 
-    # obtenemos la línea donde aparece esa palabra
-    linea = lineas_palabras[indice]
+        # obtenemos la línea donde aparece esa palabra
+        linea = lineas_palabras[indice]
 
-    # mostramos el resultado
-    print("Palabra encontrada:", palabra)
-    print("Posición:", posicion)
-    print("Línea:", linea)
+        # mostramos el resultado
+        print("Palabra encontrada:", palabra)
+        print("Posición:", posicion)
+        print("Línea:", linea)
 
+        fin = time.perf_counter()
 
-import time
+        tiempo = (fin - inicio) * 1000
+        print("Tiempo de búsqueda:", tiempo, "milisegundos")
+
+        break
+
 
 def comparar_busquedas(palabras, apariciones, lineas_palabras):
 
-    # pedimos la palabra que queremos buscar
     palabra = input("Ingrese la palabra que desea buscar: ")
 
-    # busqueda optimizada
+    # BUSQUEDA OPTIMIZADA CON DICCIONARIO
 
     inicio = time.perf_counter()
 
-    # buscamos directamente en el diccionario
     resultados_optimizados = apariciones.get(palabra, [])
 
-    fin = time.perf_counter()
-
-    # calculamos el tiempo en milisegundos
-    tiempo_optimizado = (fin - inicio) * 1000
-
-    # busqueda lineal
-
-    resultados_lineales = []
-
-    inicio = time.perf_counter()
-
-    # recorremos todas las palabras
-    for i in range(len(palabras)):
-
-        if palabras[i] == palabra:
-            resultados_lineales.append(lineas_palabras[i])
-
-    fin = time.perf_counter()
-
-    tiempo_lineal = (fin - inicio) * 1000
-
-    # mostramos resultados
-
-    print("\nRESULTADOS DE LA COMPARACION")
-
-    if resultados_optimizados == resultados_lineales:
-        print("Las dos búsquedas obtuvieron los mismos resultados.")
-    else:
-        print("Los resultados son diferentes.")
+    print("\nVERSION OPTIMIZADA")
 
     print("Cantidad de apariciones:", len(resultados_optimizados))
 
@@ -267,19 +317,62 @@ def comparar_busquedas(palabras, apariciones, lineas_palabras):
     else:
         print("La palabra no fue encontrada.")
 
-    print("\nTIEMPOS DE EJECUCION")
-    print("Búsqueda optimizada:", tiempo_optimizado, "milisegundos")
-    print("Búsqueda lineal:", tiempo_lineal, "milisegundos")
+    fin = time.perf_counter()
 
+    tiempo_optimizado = (fin - inicio) * 1000
+
+    print("Tiempo optimizado:", tiempo_optimizado, "milisegundos")
+
+
+    # BUSQUEDA LENTA CON LISTA
+
+    resultados_lineales = []
+
+    inicio = time.perf_counter()
+
+    for i in range(len(palabras)):
+
+        if palabras[i] == palabra:
+            resultados_lineales.append(lineas_palabras[i])
+
+    print("\nVERSION LENTA")
+
+    print("Cantidad de apariciones:", len(resultados_lineales))
+
+    if len(resultados_lineales) > 0:
+        print("Primera línea:", resultados_lineales[0])
+        print("Última línea:", resultados_lineales[-1])
+    else:
+        print("La palabra no fue encontrada.")
+
+    fin = time.perf_counter()
+
+    tiempo_lineal = (fin - inicio) * 1000
+
+    print("Tiempo lineal:", tiempo_lineal, "milisegundos")
+
+
+    # COMPARACION
+
+    diferencia = abs(tiempo_lineal - tiempo_optimizado)
+
+    print("\nRESULTADOS DE LA COMPARACION")
+
+    if resultados_optimizados == resultados_lineales:
+        print("Las dos búsquedas obtuvieron los mismos resultados.")
+    else:
+        print("Error: los resultados son diferentes.")
+
+    print("Diferencia de tiempo:", diferencia, "milisegundos")
 def menu():
 
     # variable para guardar las estructuras del archivo
     resultado = None
 
     # variable para controlar el menú
-    opcion = -1
+    opcion = ""
 
-    while opcion != 0:
+    while opcion != "0":
 
         print("\n========== BUSCADOR DE PALABRAS ==========")
         print("1. Cargar archivo")
@@ -299,16 +392,20 @@ def menu():
 
         opcion = input("Seleccione una opción: ")
 
+        # OPCION 0: SALIR
+        if opcion == "0":
+            break
+
         # OPCION 1: CARGAR ARCHIVO
 
-        if opcion == "1":
+        elif opcion == "1":
 
             # comprobamos si ya existe un archivo cargado
             if resultado is not None:
 
                 respuesta = input("Ya hay un archivo cargado. ¿Desea reemplazarlo? (si/no): ")
 
-                if respuesta.lower() != "si":
+                if respuesta.strip().lower() != "si":
                     print("Se conserva el archivo actual.")
                     continue
 
@@ -322,10 +419,13 @@ def menu():
                 print("Archivo cargado correctamente.")
 
         # comprobamos que exista un archivo cargado
-        elif resultado is not None:
+        elif resultado is None:
+            print("Primero debe cargar un archivo.")
+
+        else:
 
             # recuperamos las estructuras del archivo
-            palabras, apariciones, apariciones_simple, lineas_palabras = resultado
+            palabras, apariciones, apariciones_simple, lineas_palabras, raiz_trie = resultado
 
             # OPCION 2: BUSQUEDA EXACTA
 
@@ -346,7 +446,7 @@ def menu():
             elif opcion == "4":
 
                 prefijo = input("Ingrese el prefijo que desea buscar: ")
-                buscar_prefijo(prefijo, palabras, lineas_palabras)
+                buscar_prefijo(prefijo, raiz_trie, palabras, lineas_palabras)
 
             # OPCION 5: ESTADISTICAS
 
@@ -369,11 +469,15 @@ def menu():
             else:
                 print("Opción no válida.")
 
-        else:
-            print("Primero debe cargar un archivo.")
+
+
 
     print("Gracias por utilizar el programa.")
 
 
+
+
 # iniciamos el programa
-menu()
+if __name__ == "__main__":
+
+    menu()
