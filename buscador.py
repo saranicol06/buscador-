@@ -1,40 +1,106 @@
+"""
+Taller Final - BUSCADOR DE PALABRAS
+Por: Sara Zuluaga y Axel Bedoya 
+
+DESCRIPCIÓN: 
+Programa de consola que carga un archivo de texto y permite buscar palabras de forma eficiente 
+
+ESTRUCTURAS DE DATOS UTILIZADAS
+- Listas: almacenan las palabras y sus líneas en orden de aparición.
+- Diccionarios: guardan las apariciones de cada palabra para búsquedas rápidas.
+- Trie: árbol implementado desde cero para realizar búsquedas por prefijo.
+
+
+OPCIONES DEL MENÚ
+
+1. Cargar archivo             5. Mostrar estadísticas
+2. Búsqueda exacta            6. Buscar por posición
+3. Búsqueda simple             7. Comparar búsquedas
+4. Búsqueda por prefijo        0. Salir
+
+MEDICIÓN DE TIEMPOS
+
+Se utiliza time.perf_counter() para medir las búsquedas en milisegundos,
+sin contar el tiempo que tarda el usuario en escribir.
+
+ """
 import math
 import time 
-#ARBOL
-class NodoTrie:
-    #representa una letra dentro de un camino de palabras
-    __slots__ = ("hijos", "posiciones")  #atributos del arbol 
 
-    def __init__(self): #constructor, se ejecuta cada vez que creamos un nodo4
-     #crea un diccionario vacio  donde se gurada los nodos que estan conectados al nodo actual 
+
+
+class NodoTrie:
+    """
+    Nodo del Trie. Representa una letra dentro de un camino de palabras.
+
+    Atributos:
+    hijos (dict): guarda los nodos que siguen después de cada letra.
+    posiciones (list): guarda las posiciones de las palabras que terminan en este nodo.
+
+    """
+    
+    __slots__ = ("hijos", "posiciones")
+
+    def __init__(self): 
+        """ 
+        constructor: se ejecuta cada vez que creamos un nodo.
+        
+        """
         self.hijos = {}
-     #crea una lista vacia donde se guardan las posiciones donde aparecen las palabras que terminan en ese nodo
         self.posiciones =[]
 
 
 def construir_trie(indice_simple):
+     """
+     Construye el Trie a partir de las palabras unicas y en minusculas 
+
+     PARAMETROS:
+      - indice_simple (dict): palabra en minuscula por ende la lista de posiciones donde aparece
+          Retorna:
+          NodoTrie: La raiz del arbol construido.
+          Complejidad O(U*L)  = U: Palabras unicas y L= largo promedio de una palabra 
+     
+     """
      raiz = NodoTrie()
 
      for palabra_min, posiciones in indice_simple.items():
         nodo = raiz
+
+        #Bajamos letra por letra, creando los nodos que no existen
         for letra in palabra_min:
             if letra not in nodo.hijos:
                  nodo.hijos[letra] = NodoTrie()
             nodo = nodo.hijos[letra]
 
+        #el ultimo nodo marca el final de la palabra y guarda sus posiciones 
+        
         nodo.posiciones = posiciones 
 
      return raiz
 
 
 def posiciones_con_prefijo(raiz, prefijo):
+
+    """
+    Busca en el Trie todas las palabras que comienzan con el prefijo dado.
+
+    PARAMETROS: 
+    raiz (NodoTrie): Raiz del Trie
+    Prefijo (str):  prefijo ya convertido en minuscula 
+
+    RETORNA:
+    list[int]: posiciones 
+
+    
+    """
     nodo = raiz
     for letra in prefijo:
-        nodo = nodo.hijos.get(letra)
+        nodo = nodo.hijos.get(letra) 
+    
         if nodo is None:
             return[]
 
-
+    #Recolectar apariciones 
     posiciones = []
     pila = [nodo]
     while pila:
@@ -50,6 +116,17 @@ def posiciones_con_prefijo(raiz, prefijo):
  
 
 def cargar_archivo(ruta):
+    """
+    Opción 1: Carga del archivo 
+    Lee un archivo de texto y construye todas las estructuras de datos
+
+    PARAMETROS:
+    ruta (str): nombre o ruta del archivo.
+
+    RETORNA:
+    tuple: (palabras, apariciones, apariciones_simple,
+            lineas_palabras, raiz_trie) si es exitoso; None si ocurre un error.
+    """
     # lista para guardar las palabras en orden
     palabras = []
 
@@ -66,32 +143,26 @@ def cargar_archivo(ruta):
     posiciones_simple = {}
 
     try:
-        #abrimos el archivo en modo lectura
         with open(ruta, "r", encoding="utf-8") as archivo:
 
-            # leemos el archivo línea por línea
             for numero_linea, linea in enumerate(archivo, start=1):
 
-                #separamos la línea en palabras
                 palabras_linea = linea.split()
 
-                # revisamos cada palabra de la línea
                 for palabra in palabras_linea:
 
-                    # guardamos el índice antes de agregar la palabra
                     indice = len(palabras)
 
-                    # guardamos la palabra en la lista
                     palabras.append(palabra)
 
-                    # si la palabra no está en el diccionario, creamos una lista vacía para sus líneas
+
                     if palabra not in apariciones:
                         apariciones[palabra] = []
 
-                    # guardamos la línea donde aparece
                     apariciones[palabra].append(numero_linea)
 
-                    # convertimos la palabra a minúsculas
+
+
                     palabra_minuscula = palabra.lower()
 
                     if palabra_minuscula not in posiciones_simple:
@@ -99,24 +170,19 @@ def cargar_archivo(ruta):
 
                     posiciones_simple[palabra_minuscula].append(indice)
 
-                    # si no existe, creamos su lista de líneas
                     if palabra_minuscula not in apariciones_simple:
                         apariciones_simple[palabra_minuscula] = []
 
-                    # guardamos la línea donde aparece
                     apariciones_simple[palabra_minuscula].append(numero_linea)
 
-                    #lista que guarda los numeros de linea donde aparecen 
                     lineas_palabras.append(numero_linea)
 
-        # comprobamos si el archivo tenía palabras
         if len(palabras) == 0:
             print("El archivo está vacío.")
             return None
-        
+
         raiz_trie = construir_trie(posiciones_simple)    
 
-        # devolvemos las estructuras creadas incluyendo las convertidas a minusculas para tener ambas versiones del diccionario y tambien la lista con el numero de linea de las palabras
         return palabras, apariciones, apariciones_simple, lineas_palabras, raiz_trie
 
     except FileNotFoundError:
@@ -136,14 +202,25 @@ def cargar_archivo(ruta):
 
 def buscar_exacta(palabra, apariciones):
 
+    """
+    Opción 2. Busqueda exacta
+    Distingue mayusculas y minusculas y no acepta coincidencias parciales
+     
+    PARAMETROS:
+    palabra (str): palabra que se desea buscar.
+    apariciones (dict): palabra, lista de líneas donde aparece.
+
+    RETORNA:
+    None. Imprime las apariciones, primera y última línea, y tiempo de búsqueda.
+    """
+
     inicio = time.perf_counter()
 
-    #si la palabra existe como clave en el diccionario y guarda en lineas donde aparece la palabra
     if palabra in apariciones:
         lineas = apariciones[palabra]
 
         print("La palabra fue encontrada.")
-        print("Cantidad de apariciones:", len(lineas)) #cantidad de veces que aparece la palabra
+        print("Cantidad de apariciones:", len(lineas))
         print("Primera línea:", lineas[0])
         print("Última línea:", lineas[-1])
 
@@ -156,13 +233,22 @@ def buscar_exacta(palabra, apariciones):
     print("Tiempo de búsqueda:", tiempo, "milisegundos")
 
 def buscar_simple(palabra, apariciones_simple):
+    """
+    Opción 3: Búsqueda simple
+    Igula que la exacta pero no disitngue de mayusculas y minusculas 
 
-    # convertimos lo que escribió el usuario a minúsculas
+    PARAMETROS:
+    palabra (str): palabra a buscar, sin importar mayúsculas o minúsculas.
+    apariciones_simple (dict): palabra en minúsculas,  lista de líneas.
+
+    RETORNA:
+    None. Imprime la cantidad de apariciones, primera y última línea.
+    """
+
     palabra = palabra.lower()
 
     inicio = time.perf_counter()
 
-    # revisamos si la palabra existe en el diccionario
     if palabra in apariciones_simple:
 
         lineas = apariciones_simple[palabra]
@@ -182,32 +268,40 @@ def buscar_simple(palabra, apariciones_simple):
 
 
 def buscar_prefijo(prefijo, raiz_trie, palabras, lineas_palabras):
+    """
+    Opcion 4: Buscar por prefijo
+    Muestra todas las palabras que cominezan con el prefijo, ain diatinguir minusculas o mayusculas.
+
+    PARAMETROS:
+    prefijo (str): prefijo que se desea buscar.
+    raiz_trie (NodoTrie): raíz del Trie.
+    palabras (list): palabras del archivo en orden.
+    lineas_palabras (list): línea correspondiente a cada palabra.
+
+    RETORNA:
+    None. Imprime las palabras encontradas y sus líneas
+    """
     # evitamos prefijos vacíos (devolverían todas las palabras)
     if prefijo.strip() == "":
         print("Error: debe ingresar un prefijo.")
         return
     
-    # convertimos el prefijo a minúsculas
     prefijo = prefijo.strip().lower()
 
     inicio = time.perf_counter()
 
-    #buscamos en el trie las posicones de las palabras que comienzan con el prefijo indicado
     indices = posiciones_con_prefijo(raiz_trie, prefijo)
 
     if len(indices) > 0:
 
-        #mostrar cada palabra y la linea en la que aparece
         for indice in indices:
             print(palabras[indice], "- Línea:", lineas_palabras[indice])
 
 
 
-        # mostramos la primera coincidencia
         print("Primera palabra:", palabras[indices[0]])
         print("Primera línea:", lineas_palabras[indices[0]])
 
-        # mostramos la última coincidencia
         print("Última palabra:", palabras[indices[-1]])
         print("Última línea:", lineas_palabras[indices[-1]])
 
@@ -221,47 +315,59 @@ def buscar_prefijo(prefijo, raiz_trie, palabras, lineas_palabras):
 
 
 def mostrar_estadisticas(palabras):
+    """
+    Opción 5: Mostrar estadisticos 
+    Muestra el total de palabras, la primera, la ultima y la del centro.
 
-    # contamos la cantidad total de palabras
+    PARAMETROS:
+    palabras (list): palabras del archivo en orden de aparición.
+
+    RETORNA:
+    None. Imprime las estadísticas del archivo.
+    """
     total = len(palabras)
 
-    # comprobamos que existan palabras
     if total == 0:
         print("No hay palabras para mostrar estadísticas.")
 
     else:
 
-        # obtenemos la primera palabra
         primera = palabras[0]
 
-        # obtenemos la última palabra
         ultima = palabras[-1]
 
         # calculamos la posición central, math.ceil redondea un numero decimal hacia arriba del entero mas pequeno que ¿s amyor o igual a ese numerko
         posicion_central = math.ceil(total / 2)
 
-        # convertimos la posición a un índice de Python
         indice_central = posicion_central - 1
 
-        # obtenemos la palabra central
         central = palabras[indice_central]
 
-        # mostramos los resultados
         print("ESTADÍSTICAS DEL ARCHIVO")
-        print("Total de palabras:", total)
-        print("Primera palabra:", primera)
-        print("Última palabra:", ultima)
-        print("Palabra central:", central)
-        print("Posición central:", posicion_central)
+        print(f"El archivo contiene {total} palabras.")
+        print(f"La palabra No1 es: {primera}")
+        print(f"La palabra No{total} es: {ultima}")
+        print(f"La palabra del centro (No{posicion_central}) es: {central}")
 
 
 def buscar_por_posicion(palabras, lineas_palabras):
+    """
+    Opción 6: Buscar por posicion
+    Pide un numero entero X y muestra la figura que esta en la posicion X del texto
+
+    PARAMETRO:
+    palabras (list): palabras del archivo en orden.
+    lineas_palabras (list): línea correspondiente a cada palabra.
+
+    RETORNA:
+    None. Imprime cada palabra, su posición y su línea.
+    
+    """
     while True:
         posicion = input("Ingrese la posición de la palabra que desea buscar: ")
 
         inicio = time.perf_counter()
 
-        # intentamos convertir el dato a un número entero
         try:
             posicion = int(posicion)
 
@@ -269,22 +375,17 @@ def buscar_por_posicion(palabras, lineas_palabras):
             print("Error: debe ingresar un número entero.")
             continue
 
-        # comprobamos que la posición esté dentro del rango
         if posicion < 1 or posicion > len(palabras):
             print("Error: la posición está fuera del rango del archivo.")
             print("El archivo tiene", len(palabras), "palabras.")
             continue
 
-        # convertimos la posición del usuario a un índice de Python
         indice = posicion - 1
 
-        # obtenemos la palabra que está en esa posición
         palabra = palabras[indice]
 
-        # obtenemos la línea donde aparece esa palabra
         linea = lineas_palabras[indice]
 
-        # mostramos el resultado
         print("Palabra encontrada:", palabra)
         print("Posición:", posicion)
         print("Línea:", linea)
@@ -299,6 +400,18 @@ def buscar_por_posicion(palabras, lineas_palabras):
 
 def comparar_busquedas(palabras, apariciones, lineas_palabras):
 
+    """
+    Opción 7: Comparar busquedad 
+    Compara la busquedad optimizada con diccionario y la busqueda lineal con lista 
+    PARAMETROS:
+        palabras (list): palabras del archivo.
+        apariciones (dict): palabra -> lista de líneas.
+        lineas_palabras (list): línea correspondiente a cada palabra.
+
+    RETORNA:
+        None. Imprime los resultados y tiempos de ambas búsquedas
+    """
+
     palabra = input("Ingrese la palabra que desea buscar: ")
 
     # BUSQUEDA OPTIMIZADA CON DICCIONARIO
@@ -306,6 +419,12 @@ def comparar_busquedas(palabras, apariciones, lineas_palabras):
     inicio = time.perf_counter()
 
     resultados_optimizados = apariciones.get(palabra, [])
+   
+    fin = time.perf_counter()
+
+    tiempo_optimizado = (fin - inicio) * 1000
+
+    
 
     print("\nVERSION OPTIMIZADA")
 
@@ -317,23 +436,22 @@ def comparar_busquedas(palabras, apariciones, lineas_palabras):
     else:
         print("La palabra no fue encontrada.")
 
-    fin = time.perf_counter()
-
-    tiempo_optimizado = (fin - inicio) * 1000
-
     print("Tiempo optimizado:", tiempo_optimizado, "milisegundos")
 
 
     # BUSQUEDA LENTA CON LISTA
 
-    resultados_lineales = []
-
     inicio = time.perf_counter()
+    resultados_lineales = []
 
     for i in range(len(palabras)):
 
         if palabras[i] == palabra:
             resultados_lineales.append(lineas_palabras[i])
+  
+    fin = time.perf_counter()
+
+    tiempo_lineal = (fin - inicio) * 1000
 
     print("\nVERSION LENTA")
 
@@ -344,10 +462,6 @@ def comparar_busquedas(palabras, apariciones, lineas_palabras):
         print("Última línea:", resultados_lineales[-1])
     else:
         print("La palabra no fue encontrada.")
-
-    fin = time.perf_counter()
-
-    tiempo_lineal = (fin - inicio) * 1000
 
     print("Tiempo lineal:", tiempo_lineal, "milisegundos")
 
@@ -364,12 +478,21 @@ def comparar_busquedas(palabras, apariciones, lineas_palabras):
         print("Error: los resultados son diferentes.")
 
     print("Diferencia de tiempo:", diferencia, "milisegundos")
+
+    if tiempo_optimizado > 0:
+        print(f"La versión optimizada fue {tiempo_lineal / tiempo_optimizado:.1f} veces más rápida.")
+
 def menu():
 
-    # variable para guardar las estructuras del archivo
+    """
+    Ciclo principal del programa. Muestra el menú, lee la opción del usuario y
+    llama a la función correspondiente. Solo termina cuando el usuario elige
+    la opción 0 (Salir); después de cada operación vuelve al menú.
+ 
+ 
+    """
     resultado = None
 
-    # variable para controlar el menú
     opcion = ""
 
     while opcion != "0":
@@ -377,7 +500,6 @@ def menu():
         print("\n========== BUSCADOR DE PALABRAS ==========")
         print("1. Cargar archivo")
 
-        # solo mostramos las opciones si ya se cargó un archivo
         if resultado is not None:
 
             print("2. Búsqueda exacta")
@@ -400,7 +522,6 @@ def menu():
 
         elif opcion == "1":
 
-            # comprobamos si ya existe un archivo cargado
             if resultado is not None:
 
                 respuesta = input("Ya hay un archivo cargado. ¿Desea reemplazarlo? (si/no): ")
@@ -418,13 +539,11 @@ def menu():
                 resultado = nuevo_resultado
                 print("Archivo cargado correctamente.")
 
-        # comprobamos que exista un archivo cargado
         elif resultado is None:
             print("Primero debe cargar un archivo.")
 
         else:
 
-            # recuperamos las estructuras del archivo
             palabras, apariciones, apariciones_simple, lineas_palabras, raiz_trie = resultado
 
             # OPCION 2: BUSQUEDA EXACTA
@@ -477,7 +596,6 @@ def menu():
 
 
 
-# iniciamos el programa
 if __name__ == "__main__":
 
     menu()
